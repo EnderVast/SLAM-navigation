@@ -77,6 +77,13 @@ class Robot:
         th = self.state[2]
         
         # TODO: add your codes here to compute DFx using lin_vel, ang_vel, dt, and th
+        if ang_vel != 0:
+            R = lin_vel / ang_vel
+            DFx[0,2] = R * (-np.cos(th) + np.cos(th + ang_vel * dt))
+            DFx[1,2] = R * (-np.sin(th) + np.sin(th + ang_vel * dt))
+        else:
+            DFx[0,2] = -lin_vel * np.sin(th) * dt
+            DFx[1,2] = lin_vel * np.cos(th) * dt
 
         return DFx
 
@@ -125,6 +132,18 @@ class Robot:
         Jac2 = np.zeros((3,2))
         
         # TODO: add your codes here to compute Jac2 using lin_vel, ang_vel, dt, th, and th2
+        if ang_vel != 0:
+            Jac2[0,0] = (1 / ang_vel) * (-np.sin(th) + np.sin(th2))
+            Jac2[0,1] = (-lin_vel / ang_vel ** 2) * (np.sin(th) - np.sin(th2))
+            # Jac2[0,1] = (-lin_vel / ang_vel ^ 2) * (np.sin(dt * ang_vel + th) - dt * ang_vel * np.cos(dt * ang_vel + th) - np.sin(th))
+            
+            Jac2[1,0] = (1 / ang_vel) * (np.cos(th) - np.cos(th2))
+            Jac2[1,1] = (-lin_vel / ang_vel ** 2) * (np.cos(th) - np.cos(th2))
+
+            Jac2[2,1] = dt
+        else:
+            Jac2[0,0] = np.cos(th) * dt
+            Jac2[0,1] = np.sin(th) * dt
 
         # Derivative of x,y,theta w.r.t. left_speed, right_speed
         Jac = Jac2 @ Jac1
