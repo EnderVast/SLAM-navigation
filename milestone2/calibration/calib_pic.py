@@ -67,7 +67,7 @@ if __name__ == "__main__":
     if not os.path.exists(dataDir):
         os.makedirs(dataDir)
     
-    images_to_collect = 1
+    images_to_collect = 30
 
     calib = calibration(args)
 
