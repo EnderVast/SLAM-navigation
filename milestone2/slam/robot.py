@@ -133,13 +133,18 @@ class Robot:
         
         # TODO: add your codes here to compute Jac2 using lin_vel, ang_vel, dt, th, and th2
         if ang_vel != 0:
-            Jac2[0,0] = (1 / ang_vel) * (-np.sin(th) + np.sin(th2))
-            Jac2[0,1] = (-lin_vel / ang_vel ** 2) * (np.sin(th) - np.sin(th2))
-            # Jac2[0,1] = (-lin_vel / ang_vel ^ 2) * (np.sin(dt * ang_vel + th) - dt * ang_vel * np.cos(dt * ang_vel + th) - np.sin(th))
+            # Jac2[0,0] = (1 / ang_vel) * (-np.sin(th) + np.sin(th2))
+            # Jac2[0,1] = (-lin_vel / ang_vel ** 2) * (np.sin(th) - np.sin(th2))
+            # # Jac2[0,1] = (-lin_vel / ang_vel ^ 2) * (np.sin(dt * ang_vel + th) - dt * ang_vel * np.cos(dt * ang_vel + th) - np.sin(th))
             
-            Jac2[1,0] = (1 / ang_vel) * (np.cos(th) - np.cos(th2))
-            Jac2[1,1] = (-lin_vel / ang_vel ** 2) * (np.cos(th) - np.cos(th2))
+            # Jac2[1,0] = (1 / ang_vel) * (np.cos(th) - np.cos(th2))
+            # Jac2[1,1] = (-lin_vel / ang_vel ** 2) * (np.cos(th) - np.cos(th2))
 
+            # Jac2[2,1] = dt
+            Jac2[0,0] = 1/ang_vel * (np.sin(th2) - np.sin(th))
+            Jac2[0,1] = -lin_vel/(ang_vel**2) * (np.sin(th2) - np.sin(th)) + lin_vel / ang_vel * (dt * np.cos(th2))
+            Jac2[1,0] = -1/ang_vel * (np.cos(th2) - np.cos(th))
+            Jac2[1,1] = lin_vel/(ang_vel**2) * (np.cos(th2) - np.cos(th)) + -lin_vel / ang_vel * (-dt * np.sin(th2))
             Jac2[2,1] = dt
         else:
             Jac2[0,0] = np.cos(th) * dt

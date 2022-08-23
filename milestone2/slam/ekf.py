@@ -92,7 +92,7 @@ class EKF:
 
         # TODO: add your codes here to compute the predicted x
         self.robot.drive(raw_drive_meas)
-        self.set_state_vector(x)
+        # self.set_state_vector(x)
         self.P = F @ self.P @ F.T + self.predict_covariance(raw_drive_meas)
 
     # the update step of EKF
