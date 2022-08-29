@@ -260,7 +260,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ip", metavar='', type=str, default='192.168.137.101')
+    parser.add_argument("--ip", metavar='', type=str, default='192.168.137.254')
     parser.add_argument("--port", metavar='', type=int, default=8000)
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
     parser.add_argument("--save_data", action='store_true')
