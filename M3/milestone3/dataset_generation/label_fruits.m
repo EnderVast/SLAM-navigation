@@ -84,7 +84,8 @@ for i=1:nfiles
             start_y_point = grid_point(j, 2) + offset;
 
             superimposed_image = currentimage_bg;
-            labelled_image = zeros(size(currentimage_bg), 'uint8');
+            size2 = size(currentimage_bg);
+            labelled_image = zeros(size2(1), size2(2), 'uint8');
 
             % Get distance from starting point to edge of picture
             x_dist = 640 - start_x_point;
