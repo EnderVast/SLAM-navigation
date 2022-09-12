@@ -80,15 +80,26 @@ def estimate_pose(base_dir, camera_matrix, completed_img_dict):
     target_pose_dict = {}
     # for each target in each detection output, estimate its pose
     for target_num in completed_img_dict.keys():
-        box = completed_img_dict[target_num]['target'] # [[x],[y],[width],[height]]
+        box = completed_img_dict[target_num]['target'] # [[x],[y],[width],[height]] # x and y is center of bounding box
         robot_pose = completed_img_dict[target_num]['robot'] # [[x], [y], [theta]]
-        true_height = target_dimensions[target_num-1][2]    # Z 
+        true_height = target_dimensions[target_num-1][2]    # Y 
         
         ######### Replace with your codes #########
         # TODO: compute pose of the target based on bounding box info and robot's pose
         # This is the default code which estimates every pose to be (0,0)
         target_X = (box[0]*true_height)/focal_length - robot_pose[0]
         target_Y = (box[1]*true_height)/focal_length - robot_pose[1]
+
+        
+        target_Y = (focal_length*true_height)/box[3] - robot_pose[1]    # Z
+        target_X = (box[0]*target_Y)/focal_length - robot_pose[0]
+
+        hypotenuse = math.sqrt(target_Y**2 + target_X**2)
+        phi2 = np.arctan(target_X/target_Y)
+        phi = robot_pose[2] - phi2
+        target_Y = hypotenuse*np.sin(phi)
+        target_X = hypotenuse*np.cos(phi)
+
 
         target_pose = {'x': target_X, 'y': target_Y}
         
@@ -122,6 +133,17 @@ def merge_estimations(target_map):
     # Replace it with a better merge solution.
     if len(redapple_est) > num_per_target:
         redapple_est = redapple_est[0:num_per_target]
+    if len(greenapple_est) > num_per_target:
+        greenapple_est = greenapple_est[0:num_per_target]
+    if len(orange_est) > num_per_target:
+        orange_est = orange_est[0:num_per_target]
+    if len(mango_est) > num_per_target:
+        mango_est = mango_est[0:num_per_target]
+    if len(capsicum_est) > num_per_target:
+        capsicum_est = capsicum_est[0:num_per_target]
+
+    if len(redapple_est) > num_per_target:
+        redapple_est = sum(redapple_est)/len(redapple_est)
     if len(greenapple_est) > num_per_target:
         greenapple_est = greenapple_est[0:num_per_target]
     if len(orange_est) > num_per_target:
