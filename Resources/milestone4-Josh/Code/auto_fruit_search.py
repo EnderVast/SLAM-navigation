@@ -3,24 +3,28 @@
 # basic python packages
 import sys, os
 import cv2
-import numpy as np
+import numpy as np2
 import json
 import ast
 import argparse
 import time
-from Helper import *
-from operate_class import Operate
 
 # import SLAM components
 sys.path.insert(0, "{}/slam".format(os.getcwd()))
-#from slam.ekf import EKF
-#from slam.robot import Robot
-#import slam.aruco_detector as aruco
+from slam.ekf import EKF
+from slam.robot import Robot
+import slam.aruco_detector as aruco
 
 # import utility functions
-sys.path.insert(0, "util")
-from pibot import Alphabot
-#import measure as measure
+sys.path.insert(0, "{}/utility".format(os.getcwd()))
+from util.pibot import Alphabot # access the robot
+import util.DatasetHandler as dh # save/load functions
+import util.measure as measure # measurements
+#import pygame # python package for GUI
+import shutil # python package for file operations
+from util.Helper import *
+
+from operateClass import Operate
 
 
 def read_true_map(fname):
@@ -117,36 +121,47 @@ def drive_to_point(waypoint, robot_pose):
     # One simple strategy is to first turn on the spot facing the waypoint,
     # then drive straight to the way point
     
-    angle = get_angle_robot_to_goal(robot_pose, waypoint)
+    angle = get_angle_robot_to_goal(robot_pose, np.asarray(waypoint))
+    angle = angle if (angle > 0) else (angle + 2 * np.pi)
     wheel_vel = 10 # tick to move the robot
-    ang_vel = wheel_vel/baseline
+    ang_vel = wheel_vel / baseline / 2
+    print(angle)
     
     # turn towards the waypoint
 
     turn_time = angle/ang_vel # replace with your calculation
     print("Turning for {:.2f} seconds".format(turn_time))
-    ppi.set_velocity([0, 1], turning_tick=wheel_vel, time=turn_time)
+    lv_rot, rv_rot = ppi.set_velocity([0, 1], turning_tick=wheel_vel, time=turn_time)
     
     # after turning, drive straight to the waypoint
-    distance = get_distance_robot_to_goal(robot_pose, waypoint)
+    distance = get_distance_robot_to_goal(robot_pose, np.asarray(waypoint))
     drive_time = distance/wheel_vel # replace with your calculation
     print("Driving for {:.2f} seconds".format(drive_time))
-    ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time)
+    lv_forward, rv_forward = ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time)
     ####################################################
 
     print("Arrived at [{}, {}]".format(waypoint[0], waypoint[1]))
+    return lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time   # Return arguments for operate.control (in get_robot_pose), to generate drive_meas
 
 
-def get_robot_pose():
+def get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, dt_rot, dt_forward):
     ####################################################
     # TODO: replace with your codes to estimate the pose of the robot
     # We STRONGLY RECOMMEND you to use your SLAM code from M2 here
     
     # Joshua try
-    #self.ekf_on = True
-    # drive_meas = operate.control()
-    # operate.update_slam(drive_meas)
-    
+
+    # Rotation
+    drive_meas_rot = operate.control(lv_rot, rv_rot, dt_rot)
+    operate.update_slam(drive_meas_rot)
+
+    # Forward
+    drive_meas_forward = operate.control(lv_forward, rv_forward, dt_forward)
+    operate.update_slam(drive_meas_forward)
+
+    # get state
+    operate.ekf.get_state_vector()
+
     # Joshua end
 
     # update the robot pose [x,y,theta]
@@ -161,9 +176,12 @@ if __name__ == "__main__":
     parser.add_argument("--map", type=str, default='M4_true_map.txt')
     parser.add_argument("--ip", metavar='', type=str, default='localhost')
     parser.add_argument("--port", metavar='', type=int, default=8000)
+
+    parser.add_argument("--calib_dir", type=str, default="calibration/param/")
     args, _ = parser.parse_known_args()
 
     ppi = Alphabot(args.ip,args.port)
+    operate = Operate(args, ppi)
 
     # read in the true map
     fruits_list, fruits_true_pos, aruco_true_pos = read_true_map(args.map)
@@ -172,6 +190,8 @@ if __name__ == "__main__":
 
     waypoint = [0.0,0.0]
     robot_pose = [0.0,0.0,0.0]
+
+    # Initialise SLAM components and opearte class
 
     # The following code is only a skeleton code the semi-auto fruit searching task
     while True:
@@ -191,12 +211,16 @@ if __name__ == "__main__":
             print("Please enter a number.")
             continue
 
-        # estimate the robot's pose
-        robot_pose = get_robot_pose()
+        
 
         # robot drives to the waypoint
         waypoint = [x,y]
         drive_to_point(waypoint,robot_pose)
+
+
+        # estimate the robot's pose (joshua swapped order with waypoint)
+        robot_pose = get_robot_pose()
+
         print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
 
         # exit
