@@ -77,8 +77,8 @@ class Operate:
         # else:
         #     lv, rv = self.pibot.set_velocity(   # Driving the robot  
         #         self.command['motion'])
-        if not self.data is None:
-            self.data.write_keyboard(lv, rv)
+        #if not self.data is None:
+            #self.data.write_keyboard(lv, rv)
         #dt = time.time() - self.control_clock
         drive_meas = measure.Drive(lv, rv, dt)
         self.control_clock = time.time()

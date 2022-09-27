@@ -2,6 +2,7 @@
 
 # basic python packages
 import sys, os
+from urllib import robotparser
 import cv2
 import numpy as np2
 import json
@@ -57,8 +58,8 @@ def read_true_map(fname):
                     aruco_true_pos[9][1] = y
                 else:
                     marker_id = int(key[5])
-                    aruco_true_pos[marker_id][0] = x
-                    aruco_true_pos[marker_id][1] = y
+                    aruco_true_pos[marker_id - 1][0] = x
+                    aruco_true_pos[marker_id - 1][1] = y
             else:
                 fruit_list.append(key[:-2])
                 if len(fruit_true_pos) == 0:
@@ -122,20 +123,50 @@ def drive_to_point(waypoint, robot_pose):
     # then drive straight to the way point
     
     angle = get_angle_robot_to_goal(robot_pose, np.asarray(waypoint))
-    angle = angle if (angle > 0) else (angle + 2 * np.pi)
+
+    print('\n')
+    print('angle from function:')
+    print(angle/np.pi*180)  # Turn right is negative, Turn left is positive
+    print('\n')
+
+    #angle = angle if (angle > 0) else (angle + 2 * np.pi)
+    angle_turn = 0
+    turn = 0
+    command = []
+
+    if angle > -0.0001 and angle < 0.0001:
+        angle_turn = 0
+        command = [0, 0]
+
+    elif angle > 0.0001:   # Turn left
+        angle_turn = abs(angle)
+        command = [0, 1]
+        turn = -1
+
+    elif angle < 0.0001:    # Turn right
+        angle_turn = abs(angle)
+        command = [0, -1]
+        turn = 1
+
+    print('\n')
+    print('The turning angle is: ')
+    print(angle_turn/np.pi*180)
+    print('degrees \n')
+
+
     wheel_vel = 10 # tick to move the robot
-    ang_vel = wheel_vel / baseline / 2
-    print(angle)
+
+    # print(angle/np.pi*180)
     
     # turn towards the waypoint
-
-    turn_time = angle/ang_vel # replace with your calculation
+    turn_time = angle_turn * baseline / (2 * scale * wheel_vel) # replace with your calculation
+    #print(turn_time)
     print("Turning for {:.2f} seconds".format(turn_time))
-    lv_rot, rv_rot = ppi.set_velocity([0, 1], turning_tick=wheel_vel, time=turn_time)
+    lv_rot, rv_rot = ppi.set_velocity(command, turning_tick=wheel_vel, time=turn_time)
     
     # after turning, drive straight to the waypoint
     distance = get_distance_robot_to_goal(robot_pose, np.asarray(waypoint))
-    drive_time = distance/wheel_vel # replace with your calculation
+    drive_time = distance/(wheel_vel * scale)# replace with your calculation
     print("Driving for {:.2f} seconds".format(drive_time))
     lv_forward, rv_forward = ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time)
     ####################################################
@@ -160,12 +191,12 @@ def get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, dt_rot, dt_forward):
     operate.update_slam(drive_meas_forward)
 
     # get state
-    operate.ekf.get_state_vector()
+    robot_pose = operate.ekf.get_state_vector() # can try robot.self.state[0], [1] and [2]
 
     # Joshua end
 
     # update the robot pose [x,y,theta]
-    robot_pose = [0.0,0.0,0.0] # replace with your calculation
+    #robot_pose = [0.0,0.0,0.0] # replace with your calculation
     ####################################################
 
     return robot_pose
@@ -174,7 +205,7 @@ def get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, dt_rot, dt_forward):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Fruit searching")
     parser.add_argument("--map", type=str, default='M4_true_map.txt')
-    parser.add_argument("--ip", metavar='', type=str, default='localhost')
+    parser.add_argument("--ip", metavar='', type=str, default='192.168.193.150')
     parser.add_argument("--port", metavar='', type=int, default=8000)
 
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
@@ -215,12 +246,12 @@ if __name__ == "__main__":
 
         # robot drives to the waypoint
         waypoint = [x,y]
-        drive_to_point(waypoint,robot_pose)
 
+        lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
 
         # estimate the robot's pose (joshua swapped order with waypoint)
-        robot_pose = get_robot_pose()
-
+        robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
+        robot_pose = np.transpose(robot_pose)[0]
         print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
 
         # exit
