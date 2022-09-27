@@ -225,42 +225,36 @@ if __name__ == "__main__":
     waypoint = [0.0,0.0]
     robot_pose = [0.0,0.0,0.0]
 
-    all_obstacles = []
-
-    # Append obstacles
-    for i in range(len(aruco_true_pos)):
-        all_obstacles.append(Circle(aruco_true_pos[0], aruco_true_pos[1], 0.2))
-
-    for i in range(len(fruits_list)):
-        start = np.array(robot_pose[:2])
-        goal = np.array(fruits_true_pos[i])
-        rrt = RRT(start=start, goal=goal, width=5, height=5, obstacle_list=all_obstacles, expand_dis=0.2, path_resolution=0.2)
-        waypoints = rrt.planning()
-
-        for j in range(len(waypoints)):
-            waypoint = waypoints[j]
-            lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
-
-            # estimate the robot's pose (joshua swapped order with waypoint)
-            robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
-            robot_pose = np.transpose(robot_pose)[0]
-            deg = robot_pose[2] * 180 / np.pi
-            print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
-            print('Angle in degrees: ' + str(deg))
-            # exit
-            ppi.set_velocity([0, 0])
-
     #Set parameters
-    
+    goal = np.array([11.5, 9.5])
+    start = np.array([0.5, 8.5])
 
-    
+    all_obstacles = [Circle(11.5, 5, 2), Circle(4.5, 2.5, 2), Circle(4.8, 8, 2.5)]
 
-    
+    rrt = RRT(start=start, goal=goal, width=16, height=10, obstacle_list=all_obstacles, expand_dis=20, path_resolution=0.5)
 
     # Initialise SLAM components and opearte class
 
     # The following code is only a skeleton code the semi-auto fruit searching task
     while True:
+        # enter the waypoints
+        # instead of manually enter waypoints in command line, you can get coordinates by clicking on a map (GUI input), see camera_calibration.py
+        x,y = 0.0,0.0
+        x = input("X coordinate of the waypoint: ")
+        try:
+            x = float(x)
+        except ValueError:
+            print("Please enter a number.")
+            continue
+        y = input("Y coordinate of the waypoint: ")
+        try:
+            y = float(y)
+        except ValueError:
+            print("Please enter a number.")
+            continue
+
+        
+
         # robot drives to the waypoint
         waypoint = [x,y]
 
