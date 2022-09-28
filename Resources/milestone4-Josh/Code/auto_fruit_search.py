@@ -1,6 +1,7 @@
 # M4 - Autonomous fruit searching
 
 # basic python packages
+from curses import ALL_MOUSE_EVENTS
 import sys, os
 from urllib import robotparser
 import cv2
@@ -29,6 +30,8 @@ from operateClass import Operate
 
 # Import path planning algorithm
 from util.rrt import RRT
+from util.rrtc import RRTC
+from util.a_star import AStarPlanner
 
 
 def read_true_map(fname):
@@ -157,7 +160,7 @@ def drive_to_point(waypoint, robot_pose):
     print('degrees \n')
 
 
-    wheel_vel = 10 # tick to move the robot
+    wheel_vel = 15 # tick to move the robot
 
     # print(angle/np.pi*180)
     
@@ -169,6 +172,7 @@ def drive_to_point(waypoint, robot_pose):
     
     # after turning, drive straight to the waypoint
     distance = get_distance_robot_to_goal(robot_pose, np.asarray(waypoint))
+    print(distance)
     drive_time = distance/(wheel_vel * scale)# replace with your calculation
     print("Driving for {:.2f} seconds".format(drive_time))
     lv_forward, rv_forward = ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time)
@@ -208,7 +212,7 @@ def get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, dt_rot, dt_forward):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Fruit searching")
     parser.add_argument("--map", type=str, default='M4_true_map.txt')
-    parser.add_argument("--ip", metavar='', type=str, default='192.168.137.196')
+    parser.add_argument("--ip", metavar='', type=str, default='192.168.70.150')
     parser.add_argument("--port", metavar='', type=int, default=8000)
 
     parser.add_argument("--calib_dir", type=str, default="calibration/param/")
@@ -225,30 +229,40 @@ if __name__ == "__main__":
     waypoint = [0.0,0.0]
     robot_pose = [0.0,0.0,0.0]
 
-    all_obstacles = []
+    # all_obstacles = []
+    ox = []
+    oy = []
+
+    fileB = "calibration/param/baseline.txt"
+    baseline = np.loadtxt(fileB, delimiter=',')
 
     # Append obstacles
     for i in range(len(aruco_true_pos)):
-        all_obstacles.append(Circle(aruco_true_pos[0], aruco_true_pos[1], 0.2))
-
-    for i in range(len(fruits_list)):
+        # all_obstacles.append(Circle(aruco_true_pos[i][0], aruco_true_pos[i][1], 0.1))
+        ox.append(aruco_true_pos[i][0])
+        oy.append(aruco_true_pos[i][1])
+    for i in range(len(fruits_true_pos)):
+        # start = np.array(robot_pose[:2])
+        # goal = np.array(fruits_true_pos[i])
         start = np.array(robot_pose[:2])
         goal = np.array(fruits_true_pos[i])
-        rrt = RRT(start=start, goal=goal, width=5, height=5, obstacle_list=all_obstacles, expand_dis=0.2, path_resolution=0.2)
-        waypoints = rrt.planning()
+        #rrt = rrt(start=start, goal=goal, width=3.2, height=3.2, obstacle_list=all_obstacles, expand_dis=0.9, path_resolution=0.2)
+        rrt = AStarPlanner(ox=ox, oy=oy, resolution=0.2, rr=baseline/2)
 
-        for j in range(len(waypoints)):
-            waypoint = waypoints[j]
-            lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
+        rx,ry = rrt.planning(start[0],start[1],goal[0],goal[1])
 
-            # estimate the robot's pose (joshua swapped order with waypoint)
-            robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
-            robot_pose = np.transpose(robot_pose)[0]
-            deg = robot_pose[2] * 180 / np.pi
-            print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
-            print('Angle in degrees: ' + str(deg))
-            # exit
-            ppi.set_velocity([0, 0])
+        # for j in range(len(waypoints)-1,-1,-1):
+        #     waypoint = waypoints[j]
+        #     lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
+
+        #     # estimate the robot's pose (joshua swapped order with waypoint)
+        #     robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
+        #     robot_pose = np.transpose(robot_pose)[0]
+        #     deg = robot_pose[2] * 180 / np.pi
+        #     print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
+        #     print('Angle in degrees: ' + str(deg))
+        #     # exit
+        #     ppi.set_velocity([0, 0])
 
     #Set parameters
     
