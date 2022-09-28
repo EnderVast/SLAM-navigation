@@ -13,7 +13,7 @@ import math
 
 import matplotlib.pyplot as plt
 
-show_animation = True
+show_animation = False
 
 
 class AStarPlanner:
@@ -230,37 +230,39 @@ class AStarPlanner:
         return motion
 
 
-def main():
+def simulate_astar(ox, oy, sx, sy, gx, gy, robot_radius):
     print(__file__ + " start!!")
 
+    show_animation = False
+
     # start and goal position
-    sx = 10.0  # [m]
-    sy = 10.0  # [m]
-    gx = 50.0  # [m]
-    gy = 50.0  # [m]
-    grid_size = 2.0  # [m]
-    robot_radius = 1.0  # [m]
+    # sx = 10.0  # [m]
+    # sy = 10.0  # [m]
+    # gx = 50.0  # [m]
+    # gy = 50.0  # [m]
+    grid_size = 0.2  # [m]  #originlally 2.0
+    # robot_radius = 1.0  # [m]
 
     # set obstacle positions
-    ox, oy = [], []
-    for i in range(-10, 60):
-        ox.append(i)
-        oy.append(-10.0)
-    for i in range(-10, 60):
-        ox.append(60.0)
-        oy.append(i)
-    for i in range(-10, 61):
-        ox.append(i)
-        oy.append(60.0)
-    for i in range(-10, 61):
-        ox.append(-10.0)
-        oy.append(i)
-    for i in range(-10, 40):
-        ox.append(20.0)
-        oy.append(i)
-    for i in range(0, 40):
-        ox.append(40.0)
-        oy.append(60.0 - i)
+    # ox, oy = [], []
+    # for i in range(-10, 60):
+    #     ox.append(i)
+    #     oy.append(-10.0)
+    # for i in range(-10, 60):
+    #     ox.append(60.0)
+    #     oy.append(i)
+    # for i in range(-10, 61):
+    #     ox.append(i)
+    #     oy.append(60.0)
+    # for i in range(-10, 61):
+    #     ox.append(-10.0)
+    #     oy.append(i)
+    # for i in range(-10, 40):
+    #     ox.append(20.0)
+    #     oy.append(i)
+    # for i in range(0, 40):
+    #     ox.append(40.0)
+    #     oy.append(60.0 - i)
 
     if show_animation:  # pragma: no cover
         plt.plot(ox, oy, ".k")
@@ -278,5 +280,5 @@ def main():
         plt.show()
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

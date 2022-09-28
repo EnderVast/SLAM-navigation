@@ -31,7 +31,7 @@ from operateClass import Operate
 # Import path planning algorithm
 from util.rrt import RRT
 from util.rrtc import RRTC
-from util.a_star import AStarPlanner
+from util.a_star import *
 
 
 def read_true_map(fname):
@@ -246,10 +246,18 @@ if __name__ == "__main__":
         # goal = np.array(fruits_true_pos[i])
         start = np.array(robot_pose[:2])
         goal = np.array(fruits_true_pos[i])
-        #rrt = rrt(start=start, goal=goal, width=3.2, height=3.2, obstacle_list=all_obstacles, expand_dis=0.9, path_resolution=0.2)
-        rrt = AStarPlanner(ox=ox, oy=oy, resolution=0.2, rr=baseline/2)
 
-        rx,ry = rrt.planning(start[0],start[1],goal[0],goal[1])
+        # Simulate 
+        #simulate_astar(ox, oy, start[0], start[1], goal[0], goal[1], baseline/2)
+
+        #rrt = rrt(start=start, goal=goal, width=3.2, height=3.2, obstacle_list=all_obstacles, expand_dis=0.9, path_resolution=0.2)
+        a_star = AStarPlanner(ox=ox, oy=oy, resolution=0.1, rr=baseline/2)
+        rx,ry = a_star.planning(start[0],start[1],goal[0],goal[1])
+
+        waypoints = []
+        # Get waypoints
+        for i in range(len(rx)):
+            waypoints.append([rx[i], ry[i]])
 
         # for j in range(len(waypoints)-1,-1,-1):
         #     waypoint = waypoints[j]
