@@ -26,10 +26,10 @@ class EKF:
         self.lm_pics = []
         for i in range(1, 11):
             f_ = f'./pics/8bit/lm_{i}.png'
-            # self.lm_pics.append(pygame.image.load(f_))
+            self.lm_pics.append(pygame.image.load(f_))
         f_ = f'./pics/8bit/lm_unknown.png'
-        # self.lm_pics.append(pygame.image.load(f_))
-        # self.pibot_pic = pygame.image.load(f'./pics/8bit/pibot_top.png')
+        self.lm_pics.append(pygame.image.load(f_))
+        self.pibot_pic = pygame.image.load(f'./pics/8bit/pibot_top.png')
         
     def reset(self):
         self.robot.state = np.zeros((3, 1))
@@ -50,7 +50,7 @@ class EKF:
     
     def set_state_vector(self, state):
         self.robot.state = state[0:3,:]
-        self.markers = np.reshape(state[3:,:], (2,-1), order='F')
+        #self.markers = np.reshape(state[3:,:], (2,-1), order='F')
     
     def save_map(self, fname="slam_map.txt"):
         if self.number_landmarks() > 0:
@@ -102,8 +102,11 @@ class EKF:
 
         # Construct measurement index list
         tags = [lm.tag for lm in measurements]
-        idx_list = [self.taglist.index(tag) for tag in tags]
-
+        try:
+            idx_list = [self.taglist.index(tag) for tag in tags]
+        except:
+            print("error")
+            
         # Stack measurements and set covariance
         z = np.concatenate([lm.position.reshape(-1,1) for lm in measurements], axis=0)
         R = np.zeros((2*len(measurements),2*len(measurements)))
@@ -136,6 +139,7 @@ class EKF:
         Q[0:3,0:3] = self.robot.covariance_drive(raw_drive_meas)+ 0.01*np.eye(3)
         return Q
 
+    # Measurements is Marker class array
     def add_landmarks(self, measurements):
         if not measurements:
             return
@@ -155,6 +159,10 @@ class EKF:
 
             self.taglist.append(int(lm.tag))
             self.markers = np.concatenate((self.markers, lm_inertial), axis=1)
+
+            # print("new tag and marker: ")
+            # print(int(lm.tag))
+            # print(lm_inertial)
 
             # Create a simple, large covariance to be fixed by the update step
             self.P = np.concatenate((self.P, np.zeros((2, self.P.shape[1]))), axis=0)

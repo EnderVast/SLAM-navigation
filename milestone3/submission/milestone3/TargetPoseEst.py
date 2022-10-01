@@ -89,9 +89,6 @@ def estimate_pose(base_dir, camera_matrix, completed_img_dict):
         ######### Replace with your codes #########
         # TODO: compute pose of the target based on bounding box info and robot's pose
         # This is the default code which estimates every pose to be (0,0)
-        #target_dist = (focal_length * true_height) / box[3]
-        #target_X = (box[0]*true_height)/focal_length - robot_pose[0]
-        #target_Y = (box[3]*true_height)/focal_length - robot_pose[1]
 
         focal_length_y = camera_matrix[1][1]
         focal_length_x = camera_matrix[0][0]
@@ -107,31 +104,11 @@ def estimate_pose(base_dir, camera_matrix, completed_img_dict):
 
         target_X = A * np.cos(theta - phi) 
         target_Y = A * np.sin(theta - phi)
-
-        #target_X += np.sign(target_X) * 0.08 + robot_pose[0]
-        #target_Y += np.sign(target_Y) * 0.08 + robot_pose[1]
         
         target_X += robot_pose[0]
         target_Y += robot_pose[1]
 
-        #target_Y = (focal_length_y*true_height)/box[3] + robot_pose[1]    # Z
-        #target_X = ((box[0]-mu_0)*target_Y)/focal_length_x + robot_pose[0] 
-        #Z = target_Y
-
-        #target_Y = Z*np.sin(theta)
-        #target_X = Z*np.cos(theta)
-
-
-        #hypotenuse = math.sqrt(target_Y*2 + target_X*2)
-        #phi2 = np.arctan(target_X/target_Y)
-        #phi = robot_pose[2] - phi2
-        #target_Y = hypotenuse*np.sin(phi)
-        #target_X = hypotenuse*np.cos(phi)
-
         target_pose = {'x': target_X, 'y': target_Y}
-        
-        #target_dist = (focal_length * true_height) / box[1]
-        #target_pose = {'x': robot_pose[0] + target_dist * np.cos(robot_pose[2]), 'y': robot_pose[1] + target_dist * np.sin(robot_pose[2])}
 
         target_pose_dict[target_list[target_num-1]] = target_pose
         ###########################################

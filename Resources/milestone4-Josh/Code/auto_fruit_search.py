@@ -2,6 +2,8 @@
 
 # basic python packages
 from curses import ALL_MOUSE_EVENTS
+from ipaddress import AddressValueError
+from lib2to3.pgen2.tokenize import generate_tokens
 import sys, os
 from urllib import robotparser
 import cv2
@@ -26,12 +28,30 @@ import util.measure as measure # measurements
 import shutil # python package for file operations
 from util.Helper import *
 
-from operateClass import Operate
+from operateClass import *
 
 # Import path planning algorithm
 from util.rrt import RRT
 from util.rrtc import RRTC
 from util.a_star import *
+from util.d_star import *
+
+
+actual_turn_time_bias = 0.05
+actual_drive_time_bias = 0
+rr_scale = 1
+resolution = 0.5
+
+
+EKF_drive_time_bias = 0
+EKF_turn_time_bias = 0
+
+fileB = "calibration/param/baseline.txt"
+baseline = np.loadtxt(fileB, delimiter=',')
+
+robot_radius = (baseline/2*10) * rr_scale
+
+robot_pose = [0.0,0.0,0.0]
 
 
 def read_true_map(fname):
@@ -120,8 +140,6 @@ def drive_to_point(waypoint, robot_pose):
     # imports camera / wheel calibration parameters 
     fileS = "calibration/param/scale.txt"
     scale = np.loadtxt(fileS, delimiter=',')
-    fileB = "calibration/param/baseline.txt"
-    baseline = np.loadtxt(fileB, delimiter=',')
     
     ####################################################
     # TODO: replace with your codes to make the robot drive to the waypoint
@@ -159,54 +177,145 @@ def drive_to_point(waypoint, robot_pose):
     print(angle_turn/np.pi*180)
     print('degrees \n')
 
-
     wheel_vel = 15 # tick to move the robot
 
     # print(angle/np.pi*180)
-    
+    operate.take_pic()
+    time.sleep(0.2)
     # turn towards the waypoint
-    turn_time = angle_turn * baseline / (2 * scale * wheel_vel) + 0.1 # replace with your calculation
+    turn_time = angle_turn * baseline / (2 * scale * wheel_vel) # replace with your calculation
     #print(turn_time)
     print("Turning for {:.2f} seconds".format(turn_time))
-    lv_rot, rv_rot = ppi.set_velocity(command, turning_tick=wheel_vel, time=turn_time)
+    lv_rot, rv_rot = ppi.set_velocity(command, turning_tick=wheel_vel, time=turn_time + actual_turn_time_bias)
+
+
+    # Rotation EKF
+    drive_meas_rot = operate.control(lv_rot, rv_rot, turn_time + EKF_drive_time_bias)
+    operate.update_slam(drive_meas_rot)
+    updateDisplay(operate)
+
     
+    operate.take_pic()
+    time.sleep(0.2)
     # after turning, drive straight to the waypoint
     distance = get_distance_robot_to_goal(robot_pose, np.asarray(waypoint))
     print(distance)
     drive_time = distance/(wheel_vel * scale)# replace with your calculation
     print("Driving for {:.2f} seconds".format(drive_time))
-    lv_forward, rv_forward = ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time)
+    lv_forward, rv_forward = ppi.set_velocity([1, 0], tick=wheel_vel, time=drive_time + actual_drive_time_bias)
+
+
+    # Forward EKF
+    drive_meas_forward = operate.control(lv_forward, rv_forward, drive_time + EKF_drive_time_bias)
+    operate.update_slam(drive_meas_forward)
+    updateDisplay(operate)
     ####################################################
 
     print("Arrived at [{}, {}]".format(waypoint[0], waypoint[1]))
-    return lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time   # Return arguments for operate.control (in get_robot_pose), to generate drive_meas
+       # Return arguments for operate.control (in get_robot_pose), to generate drive_meas
 
 
-def get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, dt_rot, dt_forward):
+def get_robot_pose():
     ####################################################
     # TODO: replace with your codes to estimate the pose of the robot
     # We STRONGLY RECOMMEND you to use your SLAM code from M2 here
     
-    # Joshua try
-
-    # Rotation
-    drive_meas_rot = operate.control(lv_rot, rv_rot, dt_rot)
-    operate.update_slam(drive_meas_rot)
-
-    # Forward
-    drive_meas_forward = operate.control(lv_forward, rv_forward, dt_forward)
-    operate.update_slam(drive_meas_forward)
-
     # get state
     robot_pose = operate.ekf.get_state_vector() # can try robot.self.state[0], [1] and [2]
+    updateDisplay(operate)
 
-    # Joshua end
+    robot_pose = robot_pose[0:3]
+    robot_pose = np.transpose(robot_pose)[0]
+    deg = robot_pose[2] * 180 / np.pi
 
-    # update the robot pose [x,y,theta]
-    #robot_pose = [0.0,0.0,0.0] # replace with your calculation
+    angle_ekf = robot_pose[2]
+    if (robot_pose[2] > 2*math.pi):
+        angle_ekf = robot_pose[2] - 2*math.pi
+    elif (robot_pose[2] < -2*math.pi):
+        angle_ekf = robot_pose[2] + 2*math.pi
+
+    operate.ekf.robot.state[2] = angle_ekf
+
+    print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
+    print('Angle in degrees: ' + str(deg))
+
     ####################################################
 
     return robot_pose
+
+def spin(n, m):
+    fileS = "calibration/param/scale.txt"
+    scale = np.loadtxt(fileS, delimiter=',')
+
+    wheel_vel = 15 # tick to move the robot
+    for j in range(m):
+        for i in range(n):
+            # print(angle/np.pi*180)
+            command = [0, -1]
+            angle_turn = 2*math.pi/n
+            operate.take_pic()
+            time.sleep(1)
+            # turn towards the waypoint
+            turn_time = angle_turn * baseline / (2 * scale * wheel_vel) # replace with your calculation
+            #print(turn_time)
+            print("Turning for {:.2f} seconds".format(turn_time))
+            lv_rot, rv_rot = ppi.set_velocity(command, turning_tick=wheel_vel, time=turn_time + actual_turn_time_bias)
+            ppi.set_velocity([0, 0])
+            # Rotation EKF
+            drive_meas_rot = operate.control(lv_rot, rv_rot, turn_time + EKF_turn_time_bias)
+            operate.update_slam(drive_meas_rot)
+            updateDisplay(operate)
+
+            robot_pose = get_robot_pose()
+
+            time.sleep(0.5)
+
+def appendObstacleFruit(arucoPosition, fruitPosition):
+    ox = []
+    oy = []
+
+    # Generate bounds 
+    for i in range(-16, 16):
+        ox.append(i)
+        oy.append(16)
+    for i in range(-16, 16):
+        ox.append(-16)
+        oy.append(i)
+    for i in range(-16, 16):
+        ox.append(i)
+        oy.append(-16)
+    for i in range(-16, 16):
+        ox.append(16)
+        oy.append(i)
+
+    # Append obstacles
+    for i in range(len(arucoPosition)):
+        ox.append(arucoPosition[i][0]*10)
+        oy.append(arucoPosition[i][1]*10)
+
+    for i in range(len(fruitPosition)):
+        ox.append(fruitPosition[i][0]*10)
+        oy.append(fruitPosition[i][1]*10)
+
+    for a in range(len(aruco_true_pos)):
+        for i in range(-1, 2, 1):
+            for j in range(-1, 2, 1):
+                x = aruco_true_pos[a][0]*10 + j
+                y = aruco_true_pos[a][1]*10 + i
+                ox.append(x)
+                oy.append(y)
+
+    return ox, oy
+
+def generate_waypoints(a_star, sx, sy, gx, gy):
+    rx,ry = a_star.planning(sx,sy,gx,gy)
+
+    waypoints = []
+    # Get waypoints
+    for i in range(len(rx)):
+        waypoints.append([rx[i]/10, ry[i]/10])
+    waypoints = waypoints[::-1]
+    return waypoints
 
 # main loop
 if __name__ == "__main__":
@@ -226,76 +335,88 @@ if __name__ == "__main__":
     search_list = read_search_list()
     print_target_fruits_pos(search_list, fruits_list, fruits_true_pos)
 
+    operate.initAruco(aruco_true_pos)
+
     waypoint = [0.0,0.0]
-    robot_pose = [0.0,0.0,0.0]
-
-    # all_obstacles = []
-    ox = []
-    oy = []
-
-    fileB = "calibration/param/baseline.txt"
-    baseline = np.loadtxt(fileB, delimiter=',')
-
-    # Append obstacles
-    for i in range(len(aruco_true_pos)):
-        # all_obstacles.append(Circle(aruco_true_pos[i][0], aruco_true_pos[i][1], 0.1))
-        ox.append(aruco_true_pos[i][0])
-        oy.append(aruco_true_pos[i][1])
-    for i in range(len(fruits_true_pos)):
-        # start = np.array(robot_pose[:2])
-        # goal = np.array(fruits_true_pos[i])
-        start = np.array(robot_pose[:2])
-        goal = np.array(fruits_true_pos[i])
-
-        # Simulate 
-        #simulate_astar(ox, oy, start[0], start[1], goal[0], goal[1], baseline/2)
-
-        #rrt = rrt(start=start, goal=goal, width=3.2, height=3.2, obstacle_list=all_obstacles, expand_dis=0.9, path_resolution=0.2)
-        a_star = AStarPlanner(ox=ox, oy=oy, resolution=0.1, rr=baseline/2)
-        rx,ry = a_star.planning(start[0],start[1],goal[0],goal[1])
-
-        waypoints = []
-        # Get waypoints
-        for i in range(len(rx)):
-            waypoints.append([rx[i], ry[i]])
-
-        # for j in range(len(waypoints)-1,-1,-1):
-        #     waypoint = waypoints[j]
-        #     lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
-
-        #     # estimate the robot's pose (joshua swapped order with waypoint)
-        #     robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
-        #     robot_pose = np.transpose(robot_pose)[0]
-        #     deg = robot_pose[2] * 180 / np.pi
-        #     print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
-        #     print('Angle in degrees: ' + str(deg))
-        #     # exit
-        #     ppi.set_velocity([0, 0])
-
-    #Set parameters
     
 
+    ox, oy = appendObstacleFruit(aruco_true_pos, fruits_true_pos)
     
 
-    
+    spin(12, 1)
+    robot_pose = get_robot_pose()
+    print(robot_pose)
+        
+    a_star = AStarPlanner(ox=ox, oy=oy, resolution=resolution, rr=robot_radius)
 
-    # Initialise SLAM components and opearte class
+    while 1:
+        for i in range(len(fruits_true_pos)):   # Loop through each fruit
+            start = np.array(robot_pose) * 10
+            goal = np.array(fruits_true_pos[i]) * 10 -1
 
-    # The following code is only a skeleton code the semi-auto fruit searching task
-    while True:
-        # robot drives to the waypoint
-        waypoint = [x,y]
+            # Simulate 
+            #simulate_astar(ox, oy, start[0], start[1], goal[0], goal[1], robot_radius, resolution)
 
-        lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time = drive_to_point(waypoint,robot_pose)
+            # Testing:
+            #robot_pose = waypoints[0]
 
-        # estimate the robot's pose (joshua swapped order with waypoint)
-        robot_pose = get_robot_pose(lv_rot, rv_rot, lv_forward, rv_forward, turn_time, drive_time)
-        robot_pose = np.transpose(robot_pose)[0]
-        deg = robot_pose[2] * 180 / np.pi
-        print("Finished driving to waypoint: {}; New robot pose: {}".format(waypoint,robot_pose))
-        print('Angle in degrees: ' + str(deg))
-        # exit
-        ppi.set_velocity([0, 0])
-        uInput = input("Add a new waypoint? [Y/N]")
-        if uInput == 'N':
-            break
+            # Go through each waypoint
+            goal_reached = 0
+            counter = 0
+
+            waypoints = generate_waypoints(a_star, start[0], start[1], goal[0], goal[1])
+            while (goal_reached == 0):
+                
+                for i in range(1, len(waypoints)):
+                    if (i >= 8):    # Generate new waypoints and 
+                        start = np.array(robot_pose) * 10
+                        waypoints = generate_waypoints(a_star, start[0], start[1], goal[0], goal[1])
+                        #simulate_astar(ox, oy, start[0], start[1], goal[0], goal[1], robot_radius, resolution)
+                        spin(12, 1)
+                        robot_pose = get_robot_pose()
+                        break
+
+                    else:   # Run robot
+                        waypoint = waypoints[i]
+                        drive_to_point(waypoint,robot_pose)
+                        robot_pose = get_robot_pose()
+                        ppi.set_velocity([0, 0])
+                        time.sleep(0.4)
+                        
+                        if (i == len(waypoints) - 1):
+                            goal_reached = 1
+                            print("\n")
+                            print("Fruit reached")
+                            print("\n")
+                            time.sleep(3)
+                            spin(12,1)
+                            robot_pose = get_robot_pose()
+                        
+
+            # for j in range(len(waypoints)-2,-1,-1): #for j in range(len(waypoints)-1,-1,-1):
+            #     counter = counter + 1
+
+            #     waypoint = waypoints[j]
+            #     drive_to_point(waypoint,robot_pose)
+
+            #     robot_pose = get_robot_pose()
+                
+            #     # exit
+            #     ppi.set_velocity([0, 0])
+            #     time.sleep(0.4)
+
+            #     if (counter == 4):
+            #         counter = 0
+            #         spin(12, 1)
+
+
+
+            # print("Fruit reached")
+            # time.sleep(3)
+            # spin(12,1)
+            
+        break
+        #Set parameters
+
+    print("Done!")
+        
