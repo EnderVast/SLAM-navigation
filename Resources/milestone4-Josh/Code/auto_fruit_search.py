@@ -37,10 +37,10 @@ from util.a_star import *
 from util.d_star import *
 
 
-actual_turn_time_bias = 0.05
+actual_turn_time_bias = 0.045
 actual_drive_time_bias = 0
 rr_scale = 1
-resolution = 0.5
+resolution = 1
 
 
 EKF_drive_time_bias = 0
@@ -368,11 +368,12 @@ if __name__ == "__main__":
             while (goal_reached == 0):
                 
                 for i in range(1, len(waypoints)):
-                    if (i >= 8):    # Generate new waypoints and 
+                    if (i >= 4):    # Generate new waypoints and 
+                        spin(12, 1)
                         start = np.array(robot_pose) * 10
                         waypoints = generate_waypoints(a_star, start[0], start[1], goal[0], goal[1])
                         #simulate_astar(ox, oy, start[0], start[1], goal[0], goal[1], robot_radius, resolution)
-                        spin(12, 1)
+                        
                         robot_pose = get_robot_pose()
                         break
 
